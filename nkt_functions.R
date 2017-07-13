@@ -1,6 +1,7 @@
 library(tcR)
 library(dplyr)
 library(openxlsx)
+library(parallel)
 options("openxlsx.numFmt" = NULL)
 
 # without V.gene 
@@ -145,21 +146,26 @@ nkt.intersect <- function(nkt, fulls,sample_name) {
   
 ## Функция расчета вероятности вытянуть столько или больше UMI каждого клона при случайной выборке
   
-  clone.count.prob <- function(full, fraction, adj.method) {
+  clone.count.prob <- function(full, fraction, adj.method,cl) {
+
+    # no_cores <- detectCores() - 1
+    # cl <- makeCluster(no_cores)
+    # clusterExport(cl,strsplit(deparse(substitute(fraction)),'\\$')[[1]][1]  )
+    # clusterExport(cl,strsplit(deparse(substitute(full)),'\\$')[[1]][1] )
     
-    plist <- apply(fraction,1,function(clone){
+    plist <- parApply(fraction,1, cl=cl,function(clone){
       m = full[full$CDR3.nucleotide.sequence == as.character(clone[5]),]$Umi.count # UMI.Count этого клона в фулле (белые шары в коробке)
       if (length(m)==0) m=1
       n = sum(full$Umi.count)-m # суммарный UMI.Count всех остальных клонов в фулле (черные шары)
       k = sum(fraction$Umi.count) # общее количество UMI в этой фракции (кол-во вытягиваемых шаров)
       x = as.integer(clone[1])  # для скольки вытянутых белых шаров считаем вероятность
       p <-  phyper(x,m,n,k,lower.tail = FALSE) # вероятность вытянуть x или более белых шаров
-      
-      
     
       return(p)
 
     })
+    # stopCluster(cl)
+    
     fraction$p <- plist
     fraction$p.adj <- p.adjust(p=plist, method = adj.method,n =  length(plist)) # поправка на множественные сравнения
     
@@ -170,4 +176,9 @@ nkt.intersect <- function(nkt, fulls,sample_name) {
     return(fraction)
   }
 
+
+  
+ 
+  
+ # YB.CMV.p <- lapply(YB.CMV.nkt,function(x){ clone.count.prob(full = YB$YB_NKT_F, fraction = x, adj.method = "fdr",cl)} )
   

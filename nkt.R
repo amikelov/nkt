@@ -1,6 +1,8 @@
 library(tcR)
 library(dplyr)
 library(openxlsx)
+source("nkt_functions.R")
+load("all_clonesets.RData")
 
 ## parsing
 YB.CMV <- parse.folder("/home/artem/Desktop/IBH/NKT/new_nkt/fractions/TRB/YB_CMV/",.format = "mixcr")
@@ -58,11 +60,22 @@ for (samp in samples){
 }
 
 ## add p.values
+  
+no_cores <- detectCores() - 1
+cl <- makeCluster(no_cores)
+clusterExport(cl,"Kar")
+clusterExport(cl,"Kar.nkt")
+Kar.nkt.p <- lapply(Kar.nkt,function(x){ clone.count.prob(full = Kar$Kar_F, fraction = x, adj.method = "fdr",cl)} )
+stopCluster(cl)
+
+
 for (samp in samples[samples!="LY" & samples!="Kov"]){
   
   assign(paste0(samp,".nkt"),
-         lapply(get(paste0(samp,".nkt")),function(x){
-          # clone.count.prob(full = get(samp)[3], fraction = x, adj.method = "fdr")
-         }
+         lapply(get(paste0(samp,".nkt")),
+                function(x){
+                  print()
+                  return(clone.count.prob(get(samp)[3],x, "fdr"))
+                  }
          ))
 }
